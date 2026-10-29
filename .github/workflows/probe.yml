@@ -1,0 +1,38 @@
+name: issue-ref-probe
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  probe:
+    if: github.event.issue.pull_request != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+      - name: Show checkout ref
+        run: |
+          echo "REF=$GITHUB_REF"
+          echo "SHA=$GITHUB_SHA"
+          git log -1 --format='HEADCOMMIT %H %s'
+          echo "MARKER_START"; cat marker.txt; echo "MARKER_END"
+      - name: Get PR author and commenter
+        id: get-users
+        run: |
+          PR_AUTHOR=$(gh pr view ${{ github.event.issue.number }} --json author --jq .author.login)
+          COMMENT_AUTHOR="${{ github.event.comment.user.login }}"
+          echo "::set-output name=pr_author::$PR_AUTHOR"
+          echo "::set-output name=comment_author::$COMMENT_AUTHOR"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Gate real condition (author==commenter)
+        if: >
+          steps.get-users.outputs.pr_author == steps.get-users.outputs.comment_author
+        run: |
+          echo "GATE_REAL_RAN"
+          exit 1
+      - name: Gate forced false (models commenter != PR author)
+        if: steps.get-users.outputs.pr_author == 'someone-else'
+        run: |
+          echo "GATE_FALSE_BRANCH_RAN_THIS_MEANS_NOT_SKIPPED"
+      - name: After gate
+        run: echo "AFTER_GATE_REACHED"
