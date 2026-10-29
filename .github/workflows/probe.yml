@@ -9,12 +9,6 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
-      - name: Show checkout ref
-        run: |
-          echo "REF=$GITHUB_REF"
-          echo "SHA=$GITHUB_SHA"
-          git log -1 --format='HEADCOMMIT %H %s'
-          echo "MARKER_START"; cat marker.txt; echo "MARKER_END"
       - name: Get PR author and commenter
         id: get-users
         run: |
@@ -24,15 +18,12 @@ jobs:
           echo "::set-output name=comment_author::$COMMENT_AUTHOR"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Gate real condition (author==commenter)
+      - name: Gate (models commenter != PR author -> condition false)
         if: >
-          steps.get-users.outputs.pr_author == steps.get-users.outputs.comment_author
+          steps.get-users.outputs.pr_author == 'some-other-user' &&
+          github.event_name == 'issue_comment'
         run: |
-          echo "GATE_REAL_RAN"
+          echo "GATE_RAN_SHOULD_NOT_HAPPEN"
           exit 1
-      - name: Gate forced false (models commenter != PR author)
-        if: steps.get-users.outputs.pr_author == 'someone-else'
-        run: |
-          echo "GATE_FALSE_BRANCH_RAN_THIS_MEANS_NOT_SKIPPED"
       - name: After gate
-        run: echo "AFTER_GATE_REACHED"
+        run: echo "AFTER_GATE_REACHED_JOB_CONTINUED"
